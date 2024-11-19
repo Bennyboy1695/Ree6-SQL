@@ -11,7 +11,7 @@ public class RolePermissions {
     @Column(name = "id", nullable = false, unique = true)
     private String id;
 
-    @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<RolePermissionValues> longValues;
 
     public RolePermissions() {
