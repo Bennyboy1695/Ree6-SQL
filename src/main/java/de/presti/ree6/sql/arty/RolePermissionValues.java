@@ -3,7 +3,7 @@ package de.presti.ree6.sql.arty;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "RolePermissionValues")
+@Table(name = "RolePermissionsValues")
 public class RolePermissionValues {
 
     @Id
