@@ -17,6 +17,9 @@ public class RolePermissionValues {
     @Column(name = "role", nullable = false)
     private Long role;
 
+    public RolePermissionValues() {
+    }
+
     public RolePermissionValues(RolePermissions parent, Long role) {
         this.parent = parent;
         this.role = role;
