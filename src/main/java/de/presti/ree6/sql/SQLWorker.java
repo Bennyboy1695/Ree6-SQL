@@ -2416,26 +2416,17 @@ public record SQLWorker(SQLConnector sqlConnector) {
     //endregion
 
     /**
-     * Create a new RolePermissions entity (command) with a list of initial Role IDs.
+     * Create a new RolePermissions entity (command) with no initial role IDs.
      *
      * @param command the command ID to create.
-     * @param roleIds a list of initial role IDs to associate with the command.
      */
-    public void createCommandWithRoles(String command, List<Long> roleIds) {
+    public void createCommand(String command) {
         try {
             RolePermissions rolePermissions = new RolePermissions(command);
-
-            // Create and associate RolePermissionValues
-            List<RolePermissionValues> roles = roleIds.stream()
-                    .map(roleId -> {
-                        return new RolePermissionValues(rolePermissions, roleId);
-                    })
-                    .toList();
-
-            rolePermissions.setLongValues(roles);
+            rolePermissions.setLongValues(List.of()); // Initialize with an empty list
 
             updateEntity(rolePermissions).subscribe(
-                    success -> log.info("Successfully created command {} with {} roles.", command, roleIds.size()),
+                    success -> log.info("Successfully created command {} with no roles.", command),
                     error -> {
                         log.error("Error creating command {}.", command, error);
                         Sentry.captureException(error);
@@ -2446,6 +2437,7 @@ public record SQLWorker(SQLConnector sqlConnector) {
             Sentry.captureException(e);
         }
     }
+
 
     /**
      * Add a role ID to an existing command (RolePermissions entity).
