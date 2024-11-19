@@ -1,6 +1,8 @@
 package de.presti.ree6.sql;
 
 import com.google.gson.JsonObject;
+import de.presti.ree6.sql.arty.RolePermissionValues;
+import de.presti.ree6.sql.arty.RolePermissions;
 import de.presti.ree6.sql.entities.*;
 import de.presti.ree6.sql.entities.level.ChatUserLevel;
 import de.presti.ree6.sql.entities.level.UserLevel;
@@ -2412,4 +2414,163 @@ public record SQLWorker(SQLConnector sqlConnector) {
     }
 
     //endregion
+
+    /**
+     * Create a new RolePermissions entity (command) with a list of initial Role IDs.
+     *
+     * @param command the command ID to create.
+     * @param roleIds a list of initial role IDs to associate with the command.
+     */
+    public void createCommandWithRoles(String command, List<Long> roleIds) {
+        try {
+            RolePermissions rolePermissions = new RolePermissions(command);
+
+            // Create and associate RolePermissionValues
+            List<RolePermissionValues> roles = roleIds.stream()
+                    .map(roleId -> {
+                        return new RolePermissionValues(rolePermissions, roleId);
+                    })
+                    .toList();
+
+            rolePermissions.setLongValues(roles);
+
+            updateEntity(rolePermissions).subscribe(
+                    success -> log.info("Successfully created command {} with {} roles.", command, roleIds.size()),
+                    error -> {
+                        log.error("Error creating command {}.", command, error);
+                        Sentry.captureException(error);
+                    }
+            );
+        } catch (Exception e) {
+            log.error("Error preparing command creation for {}.", command, e);
+            Sentry.captureException(e);
+        }
+    }
+
+    /**
+     * Add a role ID to an existing command (RolePermissions entity).
+     *
+     * @param command the command ID.
+     * @param roleId  the role ID to add.
+     */
+    public void addRoleToCommand(String command, long roleId) {
+        getEntity(new RolePermissions(), "FROM RolePermissions WHERE id=:cmd", Map.of("cmd", command)).subscribe(
+                rolePermissionsOpt -> rolePermissionsOpt.ifPresentOrElse(
+                        rolePermissions -> {
+                            RolePermissionValues newRole = new RolePermissionValues(rolePermissions, roleId);
+                            rolePermissions.getLongValues().add(newRole);
+
+                            updateEntity(rolePermissions).subscribe(
+                                    success -> log.info("Added role ID {} to command {}.", roleId, command),
+                                    error -> {
+                                        log.error("Error updating command {} with role ID {}.", command, roleId, error);
+                                        Sentry.captureException(error);
+                                    }
+                            );
+                        },
+                        () -> log.warn("Command {} not found.", command)
+                ),
+                error -> {
+                    log.error("Error retrieving command {}.", command, error);
+                    Sentry.captureException(error);
+                }
+        );
+    }
+
+    /**
+     * Remove a role ID from an existing command (RolePermissions entity).
+     *
+     * @param command the command ID.
+     * @param roleId  the role ID to remove.
+     */
+    public void removeRoleFromCommand(String command, long roleId) {
+        getEntity(new RolePermissions(), "FROM RolePermissions WHERE id=:cmd", Map.of("cmd", command)).subscribe(
+                rolePermissionsOpt -> rolePermissionsOpt.ifPresentOrElse(
+                        rolePermissions -> {
+                            List<RolePermissionValues> roles = rolePermissions.getLongValues();
+                            RolePermissionValues roleToRemove = roles.stream()
+                                    .filter(r -> r.role() == roleId)
+                                    .findFirst()
+                                    .orElse(null);
+
+                            if (roleToRemove != null) {
+                                roles.remove(roleToRemove);
+
+                                updateEntity(rolePermissions).subscribe(
+                                        success -> log.info("Removed role ID {} from command {}.", roleId, command),
+                                        error -> {
+                                            log.error("Error updating command {} after removing role ID {}.", command, roleId, error);
+                                            Sentry.captureException(error);
+                                        }
+                                );
+                            } else {
+                                log.warn("Role ID {} not found for command {}.", roleId, command);
+                            }
+                        },
+                        () -> log.warn("Command {} not found.", command)
+                ),
+                error -> {
+                    log.error("Error retrieving command {}.", command, error);
+                    Sentry.captureException(error);
+                }
+        );
+    }
+
+    /**
+     * Delete a RolePermissions entity (command) and all associated Role IDs.
+     *
+     * @param command the command ID to delete.
+     */
+    public void deleteCommandWithRoles(String command) {
+        getEntity(new RolePermissions(), "FROM RolePermissions WHERE id=:cmd", Map.of("cmd", command)).subscribe(
+                rolePermissionsOpt -> rolePermissionsOpt.ifPresentOrElse(
+                        this::deleteEntityInternally,
+                        () -> log.warn("Command {} not found.", command)
+                ),
+                error -> {
+                    log.error("Error retrieving command {} for deletion.", command, error);
+                    Sentry.captureException(error);
+                }
+        );
+    }
+
+    /**
+     * Retrieve all role IDs associated with a command.
+     *
+     * @param command the command ID.
+     * @return a Mono containing a list of role IDs, or an empty list if the command is not found.
+     */
+    public Mono<List<Long>> getAllRoleIds(String command) {
+        return getEntity(new RolePermissions(), "FROM RolePermissions WHERE id=:cmd", Map.of("cmd", command))
+                .map(rolePermissionsOpt -> rolePermissionsOpt
+                        .map(rolePermissions -> rolePermissions.getLongValues().stream()
+                                .map(RolePermissionValues::role)
+                                .toList())
+                        .orElseGet(() -> {
+                            log.warn("Command {} not found.", command);
+                            return List.of();
+                        })
+                );
+    }
+
+    /**
+     * Check if a specific role ID is associated with a command.
+     *
+     * @param command the command ID.
+     * @param roleId  the role ID to check.
+     * @return a Mono containing true if the role ID is associated, or false otherwise.
+     */
+    public Mono<Boolean> isRoleIdPresent(String command, long roleId) {
+        return getEntity(new RolePermissions(), "FROM RolePermissions WHERE id=:cmd", Map.of("cmd", command))
+                .map(rolePermissionsOpt -> rolePermissionsOpt
+                        .map(rolePermissions -> rolePermissions.getLongValues().stream()
+                                .anyMatch(role -> role.role() == roleId))
+                        .orElseGet(() -> {
+                            log.warn("Command {} not found.", command);
+                            return false;
+                        })
+                );
+    }
+
+
 }
