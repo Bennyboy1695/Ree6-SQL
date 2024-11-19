@@ -25,7 +25,6 @@ public class RolePermissionValues {
         this.role = role;
     }
 
-    // Getters and Setters
     public Long getId() {
         return id;
     }
