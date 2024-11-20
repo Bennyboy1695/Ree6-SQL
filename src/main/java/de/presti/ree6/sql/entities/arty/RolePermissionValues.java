@@ -1,9 +1,9 @@
-package de.presti.ree6.sql.arty;
+package de.presti.ree6.sql.entities.arty;
 
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "RolePermissionsValues")
+@Table(name = "RolePermissionsValues", indexes = @Index(columnList = "id, parent_id, role"))
 public class RolePermissionValues {
 
     @Id
