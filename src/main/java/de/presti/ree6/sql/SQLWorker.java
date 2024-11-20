@@ -2437,6 +2437,17 @@ public record SQLWorker(SQLConnector sqlConnector) {
         }
     }
 
+    /**
+     * Check if a command already exists in the RolePermissions table.
+     *
+     * @param command the command ID to check.
+     * @return a Mono containing true if the command exists, or false otherwise.
+     */
+    public Mono<Boolean> doesCommandExist(String command) {
+        return getEntity(new RolePermissions(), "FROM RolePermissions WHERE id=:cmd", Map.of("cmd", command))
+                .map(Optional::isPresent);
+    }
+
 
     /**
      * Add a role ID to an existing command (RolePermissions entity).
